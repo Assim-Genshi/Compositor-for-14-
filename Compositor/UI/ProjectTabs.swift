@@ -37,9 +37,7 @@ struct ProjectTabStrip: View {
         }
         .frame(height: 34, alignment: .center)
         .scrollIndicators(.hidden)
-        .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.x > 1 } action: { _, scrolled in
-            scrolledFromStart = scrolled
-        }
+        .trackScrollFromStart($scrolledFromStart)
         // Tabs fade out where they scroll under an edge instead of being cut off — the right edge always, the left
         // once scrolled away from the first tab. A mask rather than a painted gradient, so whatever the toolbar shows
         // behind them shows through.
@@ -119,7 +117,7 @@ private struct ProjectTabButton: View {
         .frame(height: 28)
         .background(targeted ? Color.accentColor.opacity(0.3) : Color.white.opacity(active ? 0.12 : 0.035), in: Capsule())
         .overlay(Capsule().strokeBorder(targeted ? Color.accentColor : Color.white.opacity(active ? 0.22 : 0.08), lineWidth: targeted ? 2 : 1))
-        .help(targeted ? "Add to \(tab.title)" : tab.title)
+        .help(targeted ? String(localized: "Add to \(tab.title)") : tab.title)
         .onDrop(of: [UTType.fileURL.identifier, UTType.image.identifier, ProjectWorkspace.layerType], delegate:
             ProjectTabDropDelegate(workspace: workspace, destination: tab.id, targeted: $targeted))
     }
@@ -174,5 +172,18 @@ private struct ProjectTabDropDelegate: DropDelegate {
         let providers = info.itemProviders(for: [ProjectWorkspace.layerType, UTType.fileURL.identifier, UTType.image.identifier])
         Task { await workspace.receiveProviders(providers, into: destination) }
         return true
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func trackScrollFromStart(_ scrolledFromStart: Binding<Bool>) -> some View {
+        if #available(macOS 15.0, *) {
+            self.onScrollGeometryChange(for: Bool.self) { $0.contentOffset.x > 1 } action: { _, scrolled in
+                scrolledFromStart.wrappedValue = scrolled
+            }
+        } else {
+            self
+        }
     }
 }

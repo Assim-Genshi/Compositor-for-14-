@@ -1,10 +1,21 @@
-# Compositor
+# Compositor (macOS 14+ Port)
 
-Adobe Photoshop costs too much and tools like GIMP don’t feel familiar enough for me to stay in flow. That’s why I built Compositor.
+> [!NOTE]
+> **About this fork:** This is a fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor), backported and adapted to run natively on **macOS 14.6+ (Sonoma)** as well as macOS 15+ (Sequoia). The upstream version requires macOS 15+. This fork adapts macOS 15-exclusive APIs (such as window placement APIs) and adds localization support.
 
-The goal was to create a full-featured image editor that is completely free and open source. I use Photoshop for compositing and post-processing, so Compositor is built around that workflow - with the tools needed to create a pixel-perfect final image.
+---
+
+Adobe Photoshop costs too much and tools like GIMP don’t feel familiar enough for me to stay in flow. That’s why Compositor was built.
+
+The goal was to create a full-featured image editor that is completely free and open source. If you use Photoshop for compositing and post-processing, Compositor is built around that workflow — with the tools needed to create a pixel-perfect final image.
 
 Because it’s open source, you can download the Xcode project and add, remove, or modify any feature to fit your workflow.
+
+## Changes in this Fork
+
+- **macOS 14+ Compatibility:** Backported deployment target to macOS 14.6 (Sonoma) by replacing macOS 15-only SwiftUI/AppKit APIs with backwards-compatible implementations.
+- **Localization:** Added multi-language support (including Simplified Chinese `zh-Hans`).
+- **UI & Compatibility Tweaks:** Ensured stable operation across macOS 14 and macOS 15.
 
 ## Features
 
@@ -56,12 +67,18 @@ Because it’s open source, you can download the Xcode project and add, remove, 
 
 ## Requirements
 
-- macOS 26
-- Xcode 26 (to build from source)
+- **macOS:** macOS 14.6 (Sonoma) or later
+- **Xcode:** Xcode 15.0+ or Xcode 16+ (to build from source)
 
 ## Building
 
-Open `Compositor.xcodeproj` and run the **Compositor** scheme.
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/Assim-Genshi/Compositor-for-14-.git
+   ```
+2. Open `Compositor.xcodeproj` in Xcode.
+3. Select the **Compositor** scheme and choose **My Mac** as the destination.
+4. Press `⌘R` to build and run.
 
 ## Releasing
 
@@ -72,6 +89,11 @@ It needs, all kept outside this repository:
 - a **Developer ID Application** certificate in the login keychain
 - notarization credentials saved with `xcrun notarytool store-credentials "compositor-notary" …`
 - [`create-dmg`](https://github.com/create-dmg/create-dmg) (`brew install create-dmg`)
+
+## Credits & Upstream
+
+- Original project and concept by **[Robbie Tilton](https://github.com/robbietilton)** ([robbietilton/Compositor](https://github.com/robbietilton/Compositor)).
+- macOS 14 backport and enhancements maintained by [Assim Genshi](https://github.com/Assim-Genshi).
 
 ## License
 

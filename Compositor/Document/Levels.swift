@@ -1,11 +1,11 @@
 import AppKit
 import Observation
 
-nonisolated enum LevelsChannel: String, CaseIterable, Sendable, Codable {
+enum LevelsChannel: String, CaseIterable, Sendable, Codable {
     case rgb = "RGB", red = "Red", green = "Green", blue = "Blue"
     var index: Int { Self.allCases.firstIndex(of: self)! }
 }
-nonisolated struct LevelRange: Equatable, Sendable, Codable {
+struct LevelRange: Equatable, Sendable, Codable {
     var black: Double = 0
     var gamma: Double = 1
     var white: Double = 255
@@ -29,7 +29,7 @@ nonisolated struct LevelRange: Equatable, Sendable, Codable {
         return (s.outputBlack + pow(input, 1 / s.gamma) * (s.outputWhite - s.outputBlack)) / 255
     }
 }
-nonisolated struct LevelsSettings: Equatable, Sendable, Codable {
+struct LevelsSettings: Equatable, Sendable, Codable {
     var channel: LevelsChannel = .rgb
     var ranges = Array(repeating: LevelRange(), count: 4)
     var current: LevelRange {
@@ -44,7 +44,7 @@ nonisolated struct LevelsSettings: Equatable, Sendable, Codable {
 }
 /// Display-only vertical scaling. Keep linear bin ratios, but cap isolated spikes
 /// so large solid backgrounds cannot flatten the useful tonal distribution.
-nonisolated enum LevelsHistogramDisplay {
+enum LevelsHistogramDisplay {
     static func scale(for bins: [Double]) -> Double {
         let peak = bins.filter { $0.isFinite && $0 > 0 }.max() ?? 0
         guard peak > 0 else { return 0 }
@@ -55,13 +55,13 @@ nonisolated enum LevelsHistogramDisplay {
     }
 }
 
-nonisolated struct LevelsJob: @unchecked Sendable {
+struct LevelsJob: @unchecked Sendable {
     let image: CGImage
     let settings: LevelsSettings
     let selection: SelectionClip?
     let mapping: CGAffineTransform
 }
-nonisolated enum LevelsFilter {
+enum LevelsFilter {
     static func run(_ job: LevelsJob) throws -> CGImage {
         if job.settings.isIdentity { return job.image }
         let context = try BrushRaster.context(width: job.image.width, height: job.image.height, mask: false)
@@ -213,12 +213,12 @@ extension EditorSession {
         do {
             let asset = try await Task.detached(priority: .userInitiated) {
                 let image = try LevelsFilter.run(job)
-                return ImportedImage(image: image, thumbnail: try PixelAdjust.thumbnail(of: image), name: "Levels")
+                return ImportedImage(image: image, thumbnail: try PixelAdjust.thumbnail(of: image), name: String(localized: "Levels"))
             }.value
             guard let index = document?.layers.firstIndex(where: { $0.id == edit.layerID }),
                   let current = document?.layers[index], current.asset?.image === edit.original.image,
                   current.transform == edit.transform else { return }
-            beginEdit("Levels")
+            beginEdit(String(localized: "Levels"))
             document?.layers[index] = ImageLayer(id: current.id, asset: asset, name: current.name, isVisible: current.isVisible,
                 transform: current.transform, parentID: current.parentID, isGroup: false,
                 opacity: current.opacity, blendMode: current.blendMode, mask: current.mask, maskSourceID: current.maskSourceID)

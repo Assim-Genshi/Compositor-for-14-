@@ -1,7 +1,7 @@
 import Foundation
 import CoreGraphics
 
-nonisolated struct ImageSizeOptions: Sendable {
+struct ImageSizeOptions: Sendable {
     var width: Int
     var height: Int
     var resolution: Double
@@ -101,7 +101,7 @@ actor ImageResizer {
 
 extension EditorSession {
     func applyImageSize(_ snapshot: ProjectSnapshot) {
-        applyDocumentSize(snapshot, actionName: "Image Size")
+        applyDocumentSize(snapshot, actionName: String(localized: "Image Size"))
     }
 
     func applyDocumentSize(_ snapshot: ProjectSnapshot, actionName: String) {

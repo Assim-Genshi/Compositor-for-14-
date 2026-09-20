@@ -1,6 +1,6 @@
 import AppKit
 
-nonisolated enum ShapeKind: String, CaseIterable, Codable, Sendable {
+enum ShapeKind: String, CaseIterable, Codable, Sendable {
     case rectangle = "Rectangle"
     case ellipse = "Ellipse"
     /// The shape filling `rect`. A rectangle's corners round by `cornerRadius`, at most half its shorter
@@ -14,7 +14,7 @@ nonisolated enum ShapeKind: String, CaseIterable, Codable, Sendable {
 }
 
 /// What a shape layer draws, kept so the shape can be drawn again at a new size.
-nonisolated struct LayerShapeStyle: Codable, Equatable, Sendable {
+struct LayerShapeStyle: Codable, Equatable, Sendable {
     var kind: ShapeKind
     var red: CGFloat
     var green: CGFloat
@@ -27,7 +27,7 @@ nonisolated struct LayerShapeStyle: Codable, Equatable, Sendable {
 /// A layer made with the Shape tool. Its pixels are an ordinary raster, so it clips, masks, blends and filters like
 /// any layer; `image` is the raster the shape drew. Once anything else changes those pixels (painting, a filter),
 /// the layer's image is no longer this one and the layer is plain pixels from then on.
-nonisolated struct LayerShape: Equatable, @unchecked Sendable {
+struct LayerShape: Equatable, @unchecked Sendable {
     var style: LayerShapeStyle
     let image: CGImage
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.style == rhs.style && lhs.image === rhs.image }
@@ -90,14 +90,14 @@ extension EditorSession {
         let rect = draft.rect
         guard canEditLayers, document != nil, rect.width >= 1, rect.height >= 1 else { return }
         guard Int(rect.width) * Int(rect.height) <= Self.maxShapePixels else {
-            brushError = "That shape is too large. A shape can cover up to 100 megapixels."
+            brushError = String(localized: "That shape is too large. A shape can cover up to 100 megapixels.")
             return
         }
         do {
             let image = try Self.shapeImage(draft.kind, size: rect.size, color: foregroundColor, cornerRadius: draft.cornerRadius)
             let style = LayerShapeStyle(kind: draft.kind, red: foregroundColor.red, green: foregroundColor.green,
                                         blue: foregroundColor.blue, cornerRadius: draft.cornerRadius)
-            addPixelLayer(image, at: rect.origin, name: nextShapeName(draft.kind), editName: draft.kind.rawValue,
+            addPixelLayer(image, at: rect.origin, name: nextShapeName(draft.kind), editName: draft.kind.localizedName,
                           dropsSelection: false, shape: LayerShape(style: style, image: image))
         } catch { brushError = error.localizedDescription }
     }
@@ -106,8 +106,8 @@ extension EditorSession {
     func nextShapeName(_ kind: ShapeKind) -> String {
         let names = Set(document?.layers.map(\.name) ?? [])
         var number = 1
-        while names.contains("\(kind.rawValue) \(number)") { number += 1 }
-        return "\(kind.rawValue) \(number)"
+        while names.contains("\(kind.localizedName) \(number)") { number += 1 }
+        return "\(kind.localizedName) \(number)"
     }
 
     /// A shape layer scaled to a new size draws its shape again at that size, so a rounded corner keeps its radius

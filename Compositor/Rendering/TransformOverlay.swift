@@ -44,8 +44,20 @@ struct TransformOverlayGeometry: Equatable {
         let angle = atan2(handles[2].y - handles[0].y, handles[2].x - handles[0].x)
         let offsets: [CGFloat] = [.pi / 4, .pi / 2, 3 * .pi / 4, 0, .pi / 4, .pi / 2, 3 * .pi / 4, 0]
         let direction = (Int(((angle + offsets[index]) / (.pi / 4)).rounded()) % 4 + 4) % 4
-        let positions: [NSCursor.FrameResizePosition] = [.right, .bottomRight, .bottom, .topRight]
-        return .frameResize(position: positions[direction], directions: [.inward, .outward])
+        if #available(macOS 15.0, *) {
+            let positions: [NSCursor.FrameResizePosition] = [.right, .bottomRight, .bottom, .topRight]
+            return .frameResize(position: positions[direction], directions: [.inward, .outward])
+        } else {
+            switch direction {
+            case 0: return .resizeLeftRight
+            case 2: return .resizeUpDown
+            default:
+                if let symbol = NSImage(systemSymbolName: direction == 1 ? "arrow.up.left.and.arrow.down.right" : "arrow.up.right.and.arrow.down.left", accessibilityDescription: nil) {
+                    return NSCursor(image: symbol, hotSpot: NSPoint(x: symbol.size.width / 2, y: symbol.size.height / 2))
+                }
+                return .crosshair
+            }
+        }
     }
 }
 

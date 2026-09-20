@@ -3,7 +3,7 @@ import AppKit
 /// A document-space selection outline, clipped to the canvas. `nil` on the document
 /// means no selection; a selection whose path is empty is an explicit empty selection,
 /// which later edits must treat as "touch nothing", never as "touch everything".
-nonisolated struct DocumentSelection: Equatable, @unchecked Sendable {
+struct DocumentSelection: Equatable, @unchecked Sendable {
     let path: CGPath
     var antialiased = true
     var isEmpty: Bool { path.isEmpty || path.boundingBoxOfPath.isNull || path.boundingBoxOfPath.isEmpty }
@@ -43,7 +43,7 @@ extension DocumentSelection {
 
 /// Selection coverage for one region of the document. Applied as a clip, soft edges
 /// blend partially; with no coverage (an empty selection) it clips everything away.
-nonisolated struct SelectionClip: @unchecked Sendable {
+struct SelectionClip: @unchecked Sendable {
     let rect: CGRect
     let coverage: CGImage?
 
@@ -58,7 +58,7 @@ nonisolated struct SelectionClip: @unchecked Sendable {
     }
 }
 
-nonisolated enum LassoKind: String, CaseIterable, Sendable {
+enum LassoKind: String, CaseIterable, Sendable {
     case freehand = "Freehand"
     case polygonal = "Polygonal"
     /// The Marquee's outlines; not offered in the Lasso's Freehand/Polygonal choice.
@@ -68,7 +68,7 @@ nonisolated enum LassoKind: String, CaseIterable, Sendable {
     static let marqueeChoices: [LassoKind] = [.rectangle, .ellipse]
 }
 
-nonisolated enum SelectionMode: String, CaseIterable, Sendable {
+enum SelectionMode: String, CaseIterable, Sendable {
     case replace = "New"
     case add = "Add"
     case subtract = "Subtract"
@@ -76,7 +76,7 @@ nonisolated enum SelectionMode: String, CaseIterable, Sendable {
 
 /// The box a drag from `anchor` to `point` spans, in whole pixels. `square` evens the sides;
 /// `fromCenter` grows the box around the anchor. Shared by the Marquee and the Shape tool.
-nonisolated enum DragBox {
+enum DragBox {
     static func rect(from anchor: CGPoint, to point: CGPoint, square: Bool, fromCenter: Bool) -> CGRect {
         var dx = point.x.rounded() - anchor.x, dy = point.y.rounded() - anchor.y
         if square {
@@ -207,8 +207,8 @@ extension EditorSession {
             return
         }
         applySelection(outline, mode: draft.mode,
-                       name: draft.kind == .freehand ? "Lasso" : draft.kind == .polygonal ? "Polygonal Lasso"
-                           : draft.kind == .ellipse ? "Elliptical Marquee" : "Rectangular Marquee")
+                       name: draft.kind == .freehand ? String(localized: "Lasso") : draft.kind == .polygonal ? String(localized: "Polygonal Lasso")
+                           : draft.kind == .ellipse ? String(localized: "Elliptical Marquee") : String(localized: "Rectangular Marquee"))
     }
 
     func applySelection(_ shape: CGPath, mode: SelectionMode, name: String) {
@@ -243,7 +243,7 @@ extension EditorSession {
     /// Moves the outline only (never pixels). The whole drag is one undo step.
     func beginSelectionMove() -> Bool {
         guard selectionMoveOrigin == nil, let selection, !selection.isEmpty, canEditSelection else { return false }
-        beginEdit("Move Selection")
+        beginEdit(String(localized: "Move Selection"))
         selectionMoveOrigin = selection
         return true
     }
@@ -274,11 +274,11 @@ extension EditorSession {
     var canModifySelection: Bool { selection?.isEmpty == false && canEditSelection && lassoDraft == nil }
 
     /// Grows the outline by `amount` pixels with rounded corners (Photoshop's Expand), clipped to the canvas.
-    func expandSelection(by amount: Int) { resizeSelection(by: CGFloat(amount), name: "Expand Selection") }
+    func expandSelection(by amount: Int) { resizeSelection(by: CGFloat(amount), name: String(localized: "Expand Selection")) }
 
     /// Shrinks the outline by `amount` pixels, including away from the canvas edges.
     /// Contracting past the middle leaves an explicit empty selection.
-    func contractSelection(by amount: Int) { resizeSelection(by: -CGFloat(amount), name: "Contract Selection") }
+    func contractSelection(by amount: Int) { resizeSelection(by: -CGFloat(amount), name: String(localized: "Contract Selection")) }
 
     private func resizeSelection(by delta: CGFloat, name: String) {
         guard let document, let current = selection, canModifySelection, delta != 0, abs(delta) <= 500 else { return }
@@ -293,18 +293,18 @@ extension EditorSession {
 
     func selectAll() {
         guard let document else { return }
-        setSelection(DocumentSelection(path: CGPath(rect: CGRect(origin: .zero, size: document.size), transform: nil)), name: "Select All")
+        setSelection(DocumentSelection(path: CGPath(rect: CGRect(origin: .zero, size: document.size), transform: nil)), name: String(localized: "Select All"))
     }
 
     func deselect() {
         guard selection != nil else { return }
-        setSelection(nil, name: "Deselect")
+        setSelection(nil, name: String(localized: "Deselect"))
     }
 
     func invertSelection() {
         guard let document, let current = selection else { return }
         let canvas = CGPath(rect: CGRect(origin: .zero, size: document.size), transform: nil)
         setSelection(DocumentSelection(path: canvas.subtracting(current.path, using: .winding), antialiased: current.antialiased),
-                     name: "Inverse")
+                     name: String(localized: "Inverse"))
     }
 }

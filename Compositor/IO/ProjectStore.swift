@@ -7,7 +7,7 @@ extension UTType {
     static let compositorProject = UTType(exportedAs: "com.compositor.project", conformingTo: .package)
 }
 
-nonisolated struct ProjectManifest: Codable, Sendable {
+struct ProjectManifest: Codable, Sendable {
     var format = "com.compositor.project"
     var version = 7
     var colorSpace = "sRGB"
@@ -19,7 +19,7 @@ nonisolated struct ProjectManifest: Codable, Sendable {
     var layers: [ProjectLayerRecord]
 }
 
-nonisolated struct ProjectLayerRecord: Codable, Sendable {
+struct ProjectLayerRecord: Codable, Sendable {
     let id: UUID
     let name: String
     var isVisible: Bool
@@ -41,21 +41,21 @@ nonisolated struct ProjectLayerRecord: Codable, Sendable {
     var shape: LayerShapeStyle? = nil
 }
 
-nonisolated struct ProjectSnapshot: @unchecked Sendable {
+struct ProjectSnapshot: @unchecked Sendable {
     let manifest: ProjectManifest
     let images: [UUID: ImportedImage]
     var masks: [UUID: ImportedImage] = [:]
 }
 
-nonisolated enum ProjectError: LocalizedError {
+enum ProjectError: LocalizedError {
     case invalid, version(Int), missingImage, tooLarge, encode
     var errorDescription: String? {
         switch self {
-        case .invalid: "This is not a valid Compositor project, or its metadata is damaged."
-        case .version(let version): "This project uses format version \(version). This app supports versions 1–7."
-        case .missingImage: "An image inside the project is missing or damaged. The current document has not been replaced."
-        case .tooLarge: "This project exceeds the supported canvas, layer, file-size, or 100-megapixel image limit."
-        case .encode: "An image could not be saved. The previous project has not been replaced."
+        case .invalid: String(localized: "This is not a valid Compositor project, or its metadata is damaged.")
+        case .version(let version): String(localized: "This project uses format version \(version). This app supports versions 1–7.")
+        case .missingImage: String(localized: "An image inside the project is missing or damaged. The current document has not been replaced.")
+        case .tooLarge: String(localized: "This project exceeds the supported canvas, layer, file-size, or 100-megapixel image limit.")
+        case .encode: String(localized: "An image could not be saved. The previous project has not been replaced.")
         }
     }
 }

@@ -1,7 +1,7 @@
 import AppKit
 import CoreImage
 
-nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
+enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
     case hsv = "Hue/Saturation", levels = "Levels", curves = "Curves"
     case exposure = "Exposure", gradientMap = "Gradient Map", grain = "Grain"
     var symbol: String {
@@ -25,7 +25,7 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
         }
     }
 }
-nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
+struct LayerAdjustment: Codable, Equatable, Sendable {
     var kind: AdjustmentKind
     var hue: Double = 0
     var saturation: Double = 0
@@ -86,7 +86,7 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
 extension EditorSession {
     func addAdjustment(_ kind: AdjustmentKind) {
         guard canEditLayers, let document, document.layers.count < 10_000 else { return }
-        var layer = ImageLayer(name: kind.rawValue, blankSize: document.size)
+        var layer = ImageLayer(name: kind.localizedName, blankSize: document.size)
         var adjustment = LayerAdjustment(kind: kind)
         // A new Gradient Map runs from the foreground to the background color, as in Photoshop;
         // each Grain layer gets a pattern of its own.
@@ -97,7 +97,7 @@ extension EditorSession {
         layer.adjustment = adjustment
         layer.parentID = activeLayer?.isGroup == true ? activeLayerID : activeLayer?.parentID
         let index = document.layers.firstIndex { $0.id == activeLayerID }.map { $0 + 1 } ?? document.layers.count
-        beginEdit("New \(kind.rawValue) Adjustment")
+        beginEdit(String(localized: "New \(kind.localizedName) Adjustment"))
         self.document?.layers.insert(layer, at: index)
         if let parent = layer.parentID { collapsedGroupIDs.remove(parent) }
         activeLayerID = layer.id

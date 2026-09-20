@@ -6,7 +6,7 @@ import CoreImage
 /// Core Graphics gets these two wrong: its `.colorBurn` and `.colorDodge` ignore how transparent the source is, so
 /// a soft brush comes out with a hard edge. Every other mode it has is right. Core Image's versions are correct, so
 /// a layer in one of these modes is drawn into a copy of the canvas, blended there, and the result put back.
-nonisolated enum SeparableBlend {
+enum SeparableBlend {
     static func isCoreGraphicsWrong(_ mode: LayerBlendMode) -> Bool { mode == .colorBurn || mode == .colorDodge }
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])
     private static let space = CGColorSpace(name: CGColorSpace.sRGB)!

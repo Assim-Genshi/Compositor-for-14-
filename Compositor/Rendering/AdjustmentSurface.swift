@@ -1,6 +1,6 @@
 import CoreGraphics
 
-nonisolated enum AdjustmentSurface {
+enum AdjustmentSurface {
     static func draw(in context: CGContext, body: (CGContext) -> Void) {
         let bounds = context.boundingBoxOfClipPath.integral
         guard bounds.width > 0, bounds.height > 0, bounds.width*bounds.height <= 100_000_000,

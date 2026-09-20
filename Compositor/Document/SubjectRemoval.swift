@@ -1,10 +1,10 @@
 import Vision
 import CoreImage
 
-nonisolated enum SubjectRemoval {
+enum SubjectRemoval {
     enum Failure: LocalizedError {
         case noSubject
-        var errorDescription: String? { "No foreground subject was detected in this layer. Try an image with a more distinct subject." }
+        var errorDescription: String? { String(localized: "No foreground subject was detected in this layer. Try an image with a more distinct subject.") }
     }
     /// Vision's own mask for an image, kept while the panel is open so moving a slider only redoes the refining.
     private static let cache = MaskCache()
@@ -97,7 +97,7 @@ nonisolated enum SubjectRemoval {
     }
 
     /// The preview: the layer with its background made transparent by the same mask the commit lays down.
-    static func run(_ image: CGImage, settings: FilterSettings) throws -> CGImage {
+    static func run(_ image: CGImage, settings: FilterSettings = FilterSettings()) throws -> CGImage {
         let source = CIImage(cgImage: image)
         // The preview refines on a copy at most this big, so dragging a slider stays responsive.
         let mask = CIImage(cgImage: try refined(vision(image), guide: image, settings: settings, limit: 1400))

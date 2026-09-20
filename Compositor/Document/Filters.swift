@@ -4,7 +4,7 @@ import Observation
 
 /// Filters from the Filter menu. Each runs on the active image layer, inside the selection if
 /// there is one, with a live preview and one undo step on OK.
-nonisolated enum FilterKind: String, CaseIterable, Sendable {
+enum FilterKind: String, CaseIterable, Sendable {
     case gaussianBlur = "Gaussian Blur"
     case motionBlur = "Motion Blur"
     case addNoise = "Add Noise"
@@ -22,13 +22,13 @@ nonisolated enum FilterKind: String, CaseIterable, Sendable {
 
 /// Remove Background's two ways of working: Apple's own subject mask on its own, or that mask refined against the
 /// layer's detail, which recovers hair and fur but takes longer.
-nonisolated enum BackgroundQuality: String, CaseIterable, Sendable {
+enum BackgroundQuality: String, CaseIterable, Sendable {
     case basic = "Basic"
     case advanced = "Advanced"
 }
 
 /// Every filter's settings; each filter reads only its own.
-nonisolated struct FilterSettings: Equatable, Sendable {
+struct FilterSettings: Equatable, Sendable {
     /// Gaussian Blur radius in layer pixels (the blur's standard deviation), 0.1–250.
     var radius: Double = 1
     /// Motion Blur direction in degrees, counterclockwise from horizontal as in Photoshop, −90–90.
@@ -76,7 +76,7 @@ nonisolated struct FilterSettings: Equatable, Sendable {
     }
 }
 
-nonisolated struct FilterJob: @unchecked Sendable {
+struct FilterJob: @unchecked Sendable {
     let kind: FilterKind
     let image: CGImage
     let settings: FilterSettings
@@ -88,7 +88,7 @@ nonisolated struct FilterJob: @unchecked Sendable {
     var seed: UInt32 = 0
 }
 
-nonisolated enum PixelFilter {
+enum PixelFilter {
     /// `image` cropped to the pixels that are actually there, with the transform that keeps them in place: a blur
     /// is given generous room to spread, and whatever it leaves empty is cut away again.
     static func trimmed(_ image: CGImage, placed: LayerTransform) throws -> (image: CGImage, transform: LayerTransform) {
@@ -410,7 +410,7 @@ extension EditorSession {
                     image = trimmed.image
                     placed = trimmed.transform
                 }
-                return (ImportedImage(image: image, thumbnail: try PixelAdjust.thumbnail(of: image), name: job.kind.rawValue), placed)
+                return (ImportedImage(image: image, thumbnail: try PixelAdjust.thumbnail(of: image), name: job.kind.localizedName), placed)
             }.value
             let asset = made.asset
             guard let index = document?.layers.firstIndex(where: { $0.id == edit.layerID }),
@@ -426,7 +426,7 @@ extension EditorSession {
                                                       width: asset.image.width, height: asset.image.height) else { throw ExportError.render }
                 mask = owned.replacing(try LayerMask.asset(from: carried))
             }
-            beginEdit(edit.kind.rawValue)
+            beginEdit(edit.kind.localizedName)
             document?.layers[index] = ImageLayer(id: current.id, asset: asset, name: current.name, isVisible: current.isVisible,
                 transform: made.transform ?? current.transform, parentID: current.parentID, isGroup: false,
                 opacity: current.opacity, blendMode: current.blendMode, mask: mask, maskSourceID: current.maskSourceID)
@@ -463,7 +463,7 @@ extension EditorSession {
                   let layer = document?.layers[index], layer.asset?.image === edit.original.image,
                   layer.transform == edit.transform else { return }
             let asset = try LayerMask.asset(from: made)
-            beginEdit(edit.kind.rawValue)
+            beginEdit(edit.kind.localizedName)
             document?.layers[index].mask = layer.mask.map { $0.replacing(asset) } ?? LayerMask(asset: asset)
             document?.layers[index].mask?.isEnabled = true
             isMaskSelected = true

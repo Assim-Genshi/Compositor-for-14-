@@ -2,7 +2,7 @@ import AppKit
 
 /// Draws an image into an RGBA buffer (premultiplied, alpha last), lets a C kernel change it in place,
 /// and returns the result.
-nonisolated enum ImageAdjustmentPixels {
+enum ImageAdjustmentPixels {
     static func run(_ image: CGImage, _ body: (UnsafeMutablePointer<UInt8>, Int, Int, Int) -> Void) throws -> CGImage {
         let context = try BrushRaster.context(width: image.width, height: image.height, mask: false)
         BrushRaster.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height), mask: false, context: context)
@@ -17,7 +17,7 @@ nonisolated enum ImageAdjustmentPixels {
 }
 
 /// A straight sRGB color stored with an adjustment, 0–1 per channel.
-nonisolated struct AdjustmentColor: Codable, Equatable, Sendable {
+struct AdjustmentColor: Codable, Equatable, Sendable {
     var red: Double
     var green: Double
     var blue: Double
@@ -34,7 +34,7 @@ nonisolated struct AdjustmentColor: Codable, Equatable, Sendable {
 
 /// Photoshop's Exposure: `exposure` (stops) scales linear light and `offset` shifts it, then gamma
 /// correction bends the result. The same curve runs on every channel; alpha is kept.
-nonisolated struct ExposureSettings: Codable, Equatable, Sendable {
+struct ExposureSettings: Codable, Equatable, Sendable {
     static let exposureRange: ClosedRange<Double> = -20...20
     static let offsetRange: ClosedRange<Double> = -0.5...0.5
     static let gammaRange: ClosedRange<Double> = 0.01...9.99
@@ -72,7 +72,7 @@ nonisolated struct ExposureSettings: Codable, Equatable, Sendable {
 
 /// Gradient Map: each pixel's brightness picks a color between `shadows` and `highlights` (the other
 /// way round when reversed); alpha is kept.
-nonisolated struct GradientMapSettings: Codable, Equatable, Sendable {
+struct GradientMapSettings: Codable, Equatable, Sendable {
     var shadows = AdjustmentColor(red: 0, green: 0, blue: 0)
     var highlights = AdjustmentColor(red: 1, green: 1, blue: 1)
     var reversed = false
@@ -90,8 +90,11 @@ nonisolated struct GradientMapSettings: Codable, Equatable, Sendable {
         let (dark, light) = ends
         let table: [UInt8] = (0...255).flatMap { index -> [UInt8] in
             let t = Double(index) / 255
-            return [dark.red + (light.red - dark.red) * t, dark.green + (light.green - dark.green) * t,
-                    dark.blue + (light.blue - dark.blue) * t].map { UInt8(min(255, max(0, ($0 * 255).rounded()))) }
+            // Split into typed steps: as one expression it times out Xcode 26.3's type checker.
+            let red: Double = dark.red + (light.red - dark.red) * t
+            let green: Double = dark.green + (light.green - dark.green) * t
+            let blue: Double = dark.blue + (light.blue - dark.blue) * t
+            return [red, green, blue].map { (value: Double) -> UInt8 in UInt8(min(255, max(0, (value * 255).rounded()))) }
         }
         return try ImageAdjustmentPixels.run(image) { pixels, width, height, stride in
             adjust_gradient_map(pixels, width, height, stride, table)
@@ -101,7 +104,7 @@ nonisolated struct GradientMapSettings: Codable, Equatable, Sendable {
 
 /// Film grain: brightness noise, strongest in the midtones. Its pattern is fixed in document space by
 /// `seed`, so it stays put as the canvas pans or redraws part of the image.
-nonisolated struct GrainSettings: Codable, Equatable, Sendable {
+struct GrainSettings: Codable, Equatable, Sendable {
     static let amountRange: ClosedRange<Double> = 0...100
     static let sizeRange: ClosedRange<Double> = 0.5...20
     static let roughnessRange: ClosedRange<Double> = 0...100

@@ -5,7 +5,7 @@ import CoreImage
 /// Layer transforms are affine, so a distortion is previewed live and, on Apply, the pixels (and
 /// mask) are resampled into the new shape — as Photoshop does for pixel layers — leaving an
 /// ordinary axis-aligned layer over the shape's bounds.
-nonisolated enum DistortWarp {
+enum DistortWarp {
     /// The transform's corners in handle order: top-left, top-right, bottom-right, bottom-left.
     static func corners(of transform: LayerTransform) -> [CGPoint] {
         [CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0), CGPoint(x: 1, y: 1), CGPoint(x: 0, y: 1)].map(transform.point)
@@ -245,7 +245,7 @@ extension EditorSession {
     func commitDistort(_ edit: TransformEdit, corners shape: [CGPoint]) {
         distortPreviewCache = [:]
         let ids = edit.group.map { Array($0.originals.keys) } ?? [edit.layerID]
-        beginEdit(edit.group == nil ? "Distort" : "Distort Layers")
+        beginEdit(edit.group == nil ? String(localized: "Distort") : String(localized: "Distort Layers"))
         for id in ids {
             guard let index = document?.layers.firstIndex(where: { $0.id == id }), let layer = document?.layers[index],
                   let target = distortTarget(for: layer, edit: edit, shape: shape) else { continue }

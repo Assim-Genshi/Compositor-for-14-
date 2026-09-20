@@ -20,6 +20,58 @@ struct ContentView: View {
         return workspace.canReceiveDrag(into: workspace.current.id)
     }
     var body: some View {
+        editorLayout
+        .onAppear { applicationDelegate?.showEditor = { openWindow(id: "editor") } }
+        .preferredColorScheme(.dark)
+        .navigationTitle(session.projectURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Untitled"))
+        .toolbar { editorToolbar }
+        .onChange(of: session.levels == nil) { _, closed in
+            if closed { levelsPanel.close() }
+            else {
+                levelsPanel.onClose = { session.cancelLevels() }
+                levelsPanel.show(title: String(localized: "Levels"), content: LevelsSheet(session: session))
+            }
+        }
+        .onChange(of: session.hueSaturation == nil) { _, closed in
+            if closed { adjustmentPanel.close() }
+            else {
+                adjustmentPanel.onClose = { session.cancelHueSaturation() }
+                adjustmentPanel.show(title: String(localized: "Hue/Saturation"), content: HueSaturationSheet(session: session))
+            }
+        }
+        .onChange(of: session.filterEdit == nil) { _, closed in
+            if closed { filterPanel.close() }
+            else {
+                filterPanel.onClose = { session.cancelFilter() }
+                filterPanel.show(title: session.filterEdit?.kind.localizedName ?? String(localized: "Filter"), content: FilterSheet(session: session))
+            }
+        }
+        .onChange(of: session.document == nil) { _, empty in
+            if !empty { session.canvasFocusRequest += 1 }
+        }
+        .fileImporter(isPresented: $session.showsImporter,
+                      allowedContentTypes: [.jpeg, .png, .heic, .tiff], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls): Task { await session.importImages(urls) }
+            case .failure(let error):
+                if (error as NSError).code != NSUserCancelledError { session.importError = error.localizedDescription }
+            }
+        }
+        .alert("Import couldn’t finish", isPresented: Binding(
+            get: { session.importError != nil }, set: { if !$0 { session.importError = nil } })) {
+                Button("OK", role: .cancel) { session.importError = nil }
+            } message: { Text(session.importError ?? "") }
+        .alert("Couldn’t paint", isPresented: Binding(get: { session.brushError != nil },
+            set: { if !$0 { session.brushError = nil } })) {
+                Button("OK") { session.brushError = nil }
+            } message: { Text(session.brushError ?? "") }
+        .alert("Couldn’t crop", isPresented: Binding(get: { session.cropError != nil },
+            set: { if !$0 { session.cropError = nil } })) {
+                Button("OK") { session.cropError = nil }
+            } message: { Text(session.cropError ?? "") }
+    }
+    /// The editor itself, split from `body` so each half type-checks in reasonable time.
+    private var editorLayout: some View {
         VStack(spacing: 0) {
             if session.tool == .move {
                 TransformInspector(session: session).id(session.activeLayerID)
@@ -114,93 +166,43 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
-        .onAppear { applicationDelegate?.showEditor = { openWindow(id: "editor") } }
-        .preferredColorScheme(.dark)
-        .navigationTitle(session.projectURL?.deletingPathExtension().lastPathComponent ?? "Untitled")
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button { requestNewCanvas() } label: { Label("New canvas", systemImage: "plus") }
-                    .help("New canvas (⌘N)").accessibilityIdentifier("newCanvasToolbar")
-                    .disabled(session.isImporting || session.showsBusy || session.levels != nil)
-                    .modifier(NewProjectDropTarget(workspace: applicationDelegate?.workspace))
-            }
-            ToolbarSpacer(.fixed, placement: .navigation)
-            if let workspace = applicationDelegate?.workspace {
-                ToolbarItem(placement: .navigation) {
-                    ProjectTabStrip(workspace: workspace)
-                        // As wide as the toolbar allows: the window less the traffic lights and New button before it
-                        // and the zoom controls after it. Bounded, so adding tabs never pushes those aside; the
-                        // strip scrolls instead.
-                        .frame(width: max(200, windowWidth - 352), height: 34, alignment: .center)
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
-            // Absorb all remaining navigation-toolbar width before the zoom controls.
-            // Without this spacer, the growing tab strip pushes the primary actions left.
-            ToolbarSpacer(.flexible, placement: .navigation)
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button("Fit") { session.fit() }.help("Fit canvas in window (⌘0)")
-                    .accessibilityIdentifier("fitCanvas").disabled(session.document == nil)
-                Button("100%") { session.zoom(to: 1) }.help("Actual pixels (⌘1)")
-                    .accessibilityIdentifier("actualPixels").disabled(session.document == nil)
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { session.zoom(to: session.viewport.zoom * 1.25) } label: {
-                    Image(systemName: "plus.magnifyingglass")
-                }.help("Zoom in (⌘+)").disabled(session.document == nil)
-                Button { session.zoom(to: session.viewport.zoom / 1.25) } label: {
-                    Image(systemName: "minus.magnifyingglass")
-                }.help("Zoom out (⌘−)").disabled(session.document == nil)
-            }
-        }
-        .onChange(of: session.levels == nil) { _, closed in
-            if closed { levelsPanel.close() }
-            else {
-                levelsPanel.onClose = { session.cancelLevels() }
-                levelsPanel.show(title: "Levels", content: LevelsSheet(session: session))
-            }
-        }
-        .onChange(of: session.hueSaturation == nil) { _, closed in
-            if closed { adjustmentPanel.close() }
-            else {
-                adjustmentPanel.onClose = { session.cancelHueSaturation() }
-                adjustmentPanel.show(title: "Hue/Saturation", content: HueSaturationSheet(session: session))
-            }
-        }
-        .onChange(of: session.filterEdit == nil) { _, closed in
-            if closed { filterPanel.close() }
-            else {
-                filterPanel.onClose = { session.cancelFilter() }
-                filterPanel.show(title: session.filterEdit?.kind.rawValue ?? "Filter", content: FilterSheet(session: session))
-            }
-        }
-        .onChange(of: session.document == nil) { _, empty in
-            if !empty { session.canvasFocusRequest += 1 }
-        }
-        .fileImporter(isPresented: $session.showsImporter,
-                      allowedContentTypes: [.jpeg, .png, .heic, .tiff], allowsMultipleSelection: true) { result in
-            switch result {
-            case .success(let urls): Task { await session.importImages(urls) }
-            case .failure(let error):
-                if (error as NSError).code != NSUserCancelledError { session.importError = error.localizedDescription }
-            }
-        }
-        .alert("Import couldn’t finish", isPresented: Binding(
-            get: { session.importError != nil }, set: { if !$0 { session.importError = nil } })) {
-                Button("OK", role: .cancel) { session.importError = nil }
-            } message: { Text(session.importError ?? "") }
-        .alert("Couldn’t paint", isPresented: Binding(get: { session.brushError != nil },
-            set: { if !$0 { session.brushError = nil } })) {
-                Button("OK") { session.brushError = nil }
-            } message: { Text(session.brushError ?? "") }
-        .alert("Couldn’t crop", isPresented: Binding(get: { session.cropError != nil },
-            set: { if !$0 { session.cropError = nil } })) {
-                Button("OK") { session.cropError = nil }
-            } message: { Text(session.cropError ?? "") }
     }
     private func requestNewCanvas() {
         if let applicationDelegate { Task { await applicationDelegate.projects.newCanvas() } }
         else { session.clearProject() }
+    }
+    /// Kept out of `body`, whose type-checking is already near its limit.
+    @ToolbarContentBuilder private var editorToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Button { requestNewCanvas() } label: { Label("New canvas", systemImage: "plus") }
+                .help("New canvas (⌘N)").accessibilityIdentifier("newCanvasToolbar")
+                .disabled(session.isImporting || session.showsBusy || session.levels != nil)
+                .modifier(NewProjectDropTarget(workspace: applicationDelegate?.workspace))
+        }
+        if let workspace = applicationDelegate?.workspace {
+            ToolbarItem(placement: .navigation) {
+                ProjectTabStrip(workspace: workspace)
+                    // As wide as the toolbar allows: the window less the traffic lights and New button before it
+                    // and the zoom controls after it. Bounded, so adding tabs never pushes those aside; the
+                    // strip scrolls instead.
+                    .frame(width: max(200, windowWidth - 352), height: 34, alignment: .center)
+            }
+            .hidingSharedBackground()
+        }
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button("Fit") { session.fit() }.help("Fit canvas in window (⌘0)")
+                .accessibilityIdentifier("fitCanvas").disabled(session.document == nil)
+            Button("100%") { session.zoom(to: 1) }.help("Actual pixels (⌘1)")
+                .accessibilityIdentifier("actualPixels").disabled(session.document == nil)
+        }
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button { session.zoom(to: session.viewport.zoom * 1.25) } label: {
+                Image(systemName: "plus.magnifyingglass")
+            }.help("Zoom in (⌘+)").disabled(session.document == nil)
+            Button { session.zoom(to: session.viewport.zoom / 1.25) } label: {
+                Image(systemName: "minus.magnifyingglass")
+            }.help("Zoom out (⌘−)").disabled(session.document == nil)
+        }
     }
     private var toolRail: some View {
         // Scrolls when the window is too short for every tool, rather than pushing the bars above and below away.
@@ -258,12 +260,53 @@ struct ContentView: View {
                 ProgressView().controlSize(.mini)
                 Text("Importing images…")
             } else {
-                Text(session.tool == .marquee ? (session.marqueeKind == .ellipse ? "Drag an ellipse · Shift add · Option subtract · Shift again mid-drag circle · Drag inside to move · Delete clears · ⌘D deselect" : "Drag a rectangle · Shift add · Option subtract · Shift again mid-drag square · Drag inside to move · ⌘-drag moves pixels · Delete clears · ⌘D deselect") : session.tool == .wand ? "Click to select similar colors · Shift add · Option subtract · Drag inside to move · ⌘-drag moves pixels · Delete clears · ⌘D deselect" : session.tool == .lasso ? (session.lassoKind == .freehand ? "Drag to select · Drag inside to move · Shift add · Option subtract · Delete clears · ⌥⌫/⌘⌫ fill · ⌘D deselect" : "Click corners · Click start, double-click or Enter to close · Delete removes corner · Escape cancel") : session.tool == .brush ? (session.brushMode == .erase ? "Drag to erase" : "Drag to paint") + " · [ ] size · Shift-[ ] hardness · 1–0 opacity · Escape cancel · Space to pan" : session.tool == .blur ? (session.blurMode == .blur ? "Drag to soften" : session.blurMode == .smudge ? "Drag to smudge" : "Drag to push pixels") + " · [ ] size · Shift-[ ] hardness · 1–0 strength · Space to pan" : session.tool == .cloneStamp ? "Option-click to set the source · Drag to clone · [ ] size · Shift-[ ] hardness · 1–0 opacity · Space to pan" : session.tool == .spotHealing ? "Drag over blemishes to heal · [ ] size · Shift-[ ] hardness · Escape cancel · Space to pan" : session.tool == .shape ? "Drag to draw a shape on a new layer · Shift \(session.shapeKind == .rectangle ? "square" : "circle") · Option from center · Shift-U \(session.shapeKind == .rectangle ? "ellipse" : "rectangle") · Escape cancel · Space to pan" : session.tool == .gradient ? "Drag to draw · Drag ends to adjust · Shift 45° · 1–0 opacity · Enter apply · Escape cancel" : session.tool == .crop ? "Drag to crop · Enter apply · Escape cancel · Space to pan" : session.tool == .move ? "Drag to move · Handles to resize · Circle to rotate · 1–0 layer opacity · Space to pan" : session.tool == .hand ? "Drag to pan · Pinch to zoom" : session.tool == .idle ? "No tool selected · Press a tool's key to pick one · Space to pan" : "Click to zoom in · Option-click to zoom out · Drag right or left to zoom smoothly · Space to pan")
+                Text(statusHint)
             }
         }
         .font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary)
         .padding(.horizontal, 18).frame(height: 30)
         .accessibilityElement(children: .contain)
+    }
+    /// The current tool's hint, each variant one whole sentence so it translates as a unit.
+    private var statusHint: String {
+        switch session.tool {
+        case .marquee:
+            session.marqueeKind == .ellipse
+                ? String(localized: "Drag an ellipse · Shift add · Option subtract · Shift again mid-drag circle · Drag inside to move · Delete clears · ⌘D deselect")
+                : String(localized: "Drag a rectangle · Shift add · Option subtract · Shift again mid-drag square · Drag inside to move · ⌘-drag moves pixels · Delete clears · ⌘D deselect")
+        case .wand:
+            String(localized: "Click to select similar colors · Shift add · Option subtract · Drag inside to move · ⌘-drag moves pixels · Delete clears · ⌘D deselect")
+        case .lasso:
+            session.lassoKind == .freehand
+                ? String(localized: "Drag to select · Drag inside to move · Shift add · Option subtract · Delete clears · ⌥⌫/⌘⌫ fill · ⌘D deselect")
+                : String(localized: "Click corners · Click start, double-click or Enter to close · Delete removes corner · Escape cancel")
+        case .brush:
+            session.brushMode == .erase
+                ? String(localized: "Drag to erase · [ ] size · Shift-[ ] hardness · 1–0 opacity · Escape cancel · Space to pan")
+                : String(localized: "Drag to paint · [ ] size · Shift-[ ] hardness · 1–0 opacity · Escape cancel · Space to pan")
+        case .blur:
+            switch session.blurMode {
+            case .blur: String(localized: "Drag to soften · [ ] size · Shift-[ ] hardness · 1–0 strength · Space to pan")
+            case .smudge: String(localized: "Drag to smudge · [ ] size · Shift-[ ] hardness · 1–0 strength · Space to pan")
+            case .liquify: String(localized: "Drag to push pixels · [ ] size · Shift-[ ] hardness · 1–0 strength · Space to pan")
+            }
+        case .cloneStamp:
+            String(localized: "Option-click to set the source · Drag to clone · [ ] size · Shift-[ ] hardness · 1–0 opacity · Space to pan")
+        case .spotHealing:
+            String(localized: "Drag over blemishes to heal · [ ] size · Shift-[ ] hardness · Escape cancel · Space to pan")
+        case .shape:
+            session.shapeKind == .rectangle
+                ? String(localized: "Drag to draw a shape on a new layer · Shift square · Option from center · Shift-U ellipse · Escape cancel · Space to pan")
+                : String(localized: "Drag to draw a shape on a new layer · Shift circle · Option from center · Shift-U rectangle · Escape cancel · Space to pan")
+        case .gradient:
+            String(localized: "Drag to draw · Drag ends to adjust · Shift 45° · 1–0 opacity · Enter apply · Escape cancel")
+        case .crop: String(localized: "Drag to crop · Enter apply · Escape cancel · Space to pan")
+        case .move: String(localized: "Drag to move · Handles to resize · Circle to rotate · 1–0 layer opacity · Space to pan")
+        case .hand: String(localized: "Drag to pan · Pinch to zoom")
+        case .idle: String(localized: "No tool selected · Press a tool's key to pick one · Space to pan")
+        case .zoom, .eyedropper:
+            String(localized: "Click to zoom in · Option-click to zoom out · Drag right or left to zoom smoothly · Space to pan")
+        }
     }
 }
 
@@ -276,7 +319,7 @@ private struct PanelResizeEdge: View {
     var body: some View {
         Divider().overlay {
             Color.clear.frame(width: 8).contentShape(Rectangle())
-                .pointerStyle(.columnResize)
+                .columnResizePointer()
                 .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { value in
                         let start = startWidth ?? width
@@ -285,6 +328,24 @@ private struct PanelResizeEdge: View {
                     }
                     .onEnded { _ in startWidth = nil })
                 .help("Drag to resize the panel")
+        }
+    }
+}
+
+private extension ToolbarContent {
+    /// Drops the glass background macOS 26 draws behind toolbar items; earlier toolbars draw none.
+    @ToolbarContentBuilder func hidingSharedBackground() -> some ToolbarContent {
+        self
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func columnResizePointer() -> some View {
+        if #available(macOS 15.0, *) {
+            self.pointerStyle(.columnResize)
+        } else {
+            self
         }
     }
 }
