@@ -23,75 +23,19 @@ struct ContentView: View {
     }
     var body: some View {
         editorLayout
-        .onAppear { applicationDelegate?.showEditor = { openWindow(id: "editor") } }
-        .preferredColorScheme(.dark)
-        .navigationTitle(session.projectURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Untitled"))
-        .toolbar { editorToolbar }
-        .onChange(of: session.levels == nil) { _, closed in
-            if closed { levelsPanel.close() }
-            else {
-                levelsPanel.onClose = { session.cancelLevels() }
-                levelsPanel.show(title: String(localized: "Levels"), content: LevelsSheet(session: session))
-            }
-        }
-        .onChange(of: session.hueSaturation == nil) { _, closed in
-            if closed { adjustmentPanel.close() }
-            else {
-                adjustmentPanel.onClose = { session.cancelHueSaturation() }
-                adjustmentPanel.show(title: String(localized: "Hue/Saturation"), content: HueSaturationSheet(session: session))
-            }
-        }
-        .onChange(of: session.effectsEditing) { _, selection in
-            if let selection {
-                effectsPanel.onClose = { session.finishEffectsEditing(commit: false) }
-                effectsPanel.show(title: selection.kind.localizedName, content: EffectsSheet(session: session, kind: selection.kind))
-            } else { effectsPanel.close() }
-        }
-        .onChange(of: session.document?.layers) { _, layers in
-            if let editing = session.effectsEditing,
-               layers?.first(where: { $0.id == editing.layerID })?.effects?.contains(editing.kind) != true {
-                if let picker = session.colorPicker, case .effect = picker.target { session.closeColorPicker(commit: false) }
-                session.effectsEditing = nil
-                session.effectsEditingOriginal = nil
-            }
-        }
-        .onChange(of: session.selectionAmountOperation) { _, operation in
-            if let operation {
-                selectionAmountPanel.onClose = { session.selectionAmountOperation = nil }
-                selectionAmountPanel.show(title: operation.localizedTitle,
-                    content: SelectionAmountSheet(session: session, operation: operation))
-            } else { selectionAmountPanel.close() }
-        }
-        .onChange(of: session.filterEdit == nil) { _, closed in
-            if closed { filterPanel.close() }
-            else {
-                filterPanel.onClose = { session.cancelFilter() }
-                filterPanel.show(title: session.filterEdit?.kind.localizedName ?? String(localized: "Filter"), content: FilterSheet(session: session))
-            }
-        }
-        .onChange(of: session.document == nil) { _, empty in
-            if !empty { session.canvasFocusRequest += 1 }
-        }
-        .fileImporter(isPresented: $session.showsImporter,
-                      allowedContentTypes: [.jpeg, .png, .heic, .tiff], allowsMultipleSelection: true) { result in
-            switch result {
-            case .success(let urls): Task { await session.importImages(urls) }
-            case .failure(let error):
-                if (error as NSError).code != NSUserCancelledError { session.importError = error.localizedDescription }
-            }
-        }
-        .alert("Import couldn’t finish", isPresented: Binding(
-            get: { session.importError != nil }, set: { if !$0 { session.importError = nil } })) {
-                Button("OK", role: .cancel) { session.importError = nil }
-            } message: { Text(session.importError ?? "") }
-        .alert("Couldn’t paint", isPresented: Binding(get: { session.brushError != nil },
-            set: { if !$0 { session.brushError = nil } })) {
-                Button("OK") { session.brushError = nil }
-            } message: { Text(session.brushError ?? "") }
-        .alert("Couldn’t crop", isPresented: Binding(get: { session.cropError != nil },
-            set: { if !$0 { session.cropError = nil } })) {
-                Button("OK") { session.cropError = nil }
-            } message: { Text(session.cropError ?? "") }
+            .onAppear { applicationDelegate?.showEditor = { openWindow(id: "editor") } }
+            .preferredColorScheme(.dark)
+            .navigationTitle(session.projectURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Untitled"))
+            .toolbar { editorToolbar }
+            .modifier(PanelControllersModifier(
+                session: session,
+                levelsPanel: levelsPanel,
+                adjustmentPanel: adjustmentPanel,
+                filterPanel: filterPanel,
+                effectsPanel: effectsPanel,
+                selectionAmountPanel: selectionAmountPanel
+            ))
+            .modifier(DialogsModifier(session: session))
     }
     /// The editor itself, split from `body` so each half type-checks in reasonable time.
     private var editorLayout: some View {
@@ -374,6 +318,92 @@ private struct PanelResizeEdge: View {
                     .onEnded { _ in startWidth = nil })
                 .help("Drag to resize the panel")
         }
+    }
+}
+
+private struct PanelControllersModifier: ViewModifier {
+    @Bindable var session: EditorSession
+    let levelsPanel: FloatingPanelController
+    let adjustmentPanel: FloatingPanelController
+    let filterPanel: FloatingPanelController
+    let effectsPanel: FloatingPanelController
+    let selectionAmountPanel: FloatingPanelController
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: session.levels == nil) { _, closed in
+                if closed { levelsPanel.close() }
+                else {
+                    levelsPanel.onClose = { session.cancelLevels() }
+                    levelsPanel.show(title: String(localized: "Levels"), content: LevelsSheet(session: session))
+                }
+            }
+            .onChange(of: session.hueSaturation == nil) { _, closed in
+                if closed { adjustmentPanel.close() }
+                else {
+                    adjustmentPanel.onClose = { session.cancelHueSaturation() }
+                    adjustmentPanel.show(title: String(localized: "Hue/Saturation"), content: HueSaturationSheet(session: session))
+                }
+            }
+            .onChange(of: session.effectsEditing) { _, selection in
+                if let selection {
+                    effectsPanel.onClose = { session.finishEffectsEditing(commit: false) }
+                    effectsPanel.show(title: selection.kind.localizedName, content: EffectsSheet(session: session, kind: selection.kind))
+                } else { effectsPanel.close() }
+            }
+            .onChange(of: session.document?.layers) { _, layers in
+                if let editing = session.effectsEditing,
+                   layers?.first(where: { $0.id == editing.layerID })?.effects?.contains(editing.kind) != true {
+                    if let picker = session.colorPicker, case .effect = picker.target { session.closeColorPicker(commit: false) }
+                    session.effectsEditing = nil
+                    session.effectsEditingOriginal = nil
+                }
+            }
+            .onChange(of: session.selectionAmountOperation) { _, operation in
+                if let operation {
+                    selectionAmountPanel.onClose = { session.selectionAmountOperation = nil }
+                    selectionAmountPanel.show(title: operation.localizedTitle,
+                        content: SelectionAmountSheet(session: session, operation: operation))
+                } else { selectionAmountPanel.close() }
+            }
+            .onChange(of: session.filterEdit == nil) { _, closed in
+                if closed { filterPanel.close() }
+                else {
+                    filterPanel.onClose = { session.cancelFilter() }
+                    filterPanel.show(title: session.filterEdit?.kind.localizedName ?? String(localized: "Filter"), content: FilterSheet(session: session))
+                }
+            }
+            .onChange(of: session.document == nil) { _, empty in
+                if !empty { session.canvasFocusRequest += 1 }
+            }
+    }
+}
+
+private struct DialogsModifier: ViewModifier {
+    @Bindable var session: EditorSession
+
+    func body(content: Content) -> some View {
+        content
+            .fileImporter(isPresented: $session.showsImporter,
+                          allowedContentTypes: [.jpeg, .png, .heic, .tiff], allowsMultipleSelection: true) { result in
+                switch result {
+                case .success(let urls): Task { await session.importImages(urls) }
+                case .failure(let error):
+                    if (error as NSError).code != NSUserCancelledError { session.importError = error.localizedDescription }
+                }
+            }
+            .alert("Import couldn’t finish", isPresented: Binding(
+                get: { session.importError != nil }, set: { if !$0 { session.importError = nil } })) {
+                    Button("OK", role: .cancel) { session.importError = nil }
+                } message: { Text(session.importError ?? "") }
+            .alert("Couldn’t paint", isPresented: Binding(get: { session.brushError != nil },
+                set: { if !$0 { session.brushError = nil } })) {
+                    Button("OK") { session.brushError = nil }
+                } message: { Text(session.brushError ?? "") }
+            .alert("Couldn’t crop", isPresented: Binding(get: { session.cropError != nil },
+                set: { if !$0 { session.cropError = nil } })) {
+                    Button("OK") { session.cropError = nil }
+                } message: { Text(session.cropError ?? "") }
     }
 }
 
