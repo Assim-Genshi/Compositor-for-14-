@@ -50,6 +50,8 @@ final class EffectsPreviewCache {
     private var seeds: [UUID: Result] = [:]
     private var sideLimit = 1536
 
+    nonisolated init() {}
+
     /// Shows `image` at `placement` for a layer until a fresh preview is ready.
     func seed(_ id: UUID, image: CGImage, placement: LayerTransform) {
         // Whatever is being rendered is for the pixels this replaces, and landing later would drop the seed.
