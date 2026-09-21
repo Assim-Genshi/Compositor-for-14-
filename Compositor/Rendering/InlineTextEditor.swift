@@ -255,14 +255,34 @@ final class InlineTextEditor: NSView, NSTextViewDelegate {
         if let moveMonitor { NSEvent.removeMonitor(moveMonitor) }
     }
 
-    /// The arrows for the edge or corner a handle resizes, turned with the text box.
     private func handleCursor(_ index: Int) -> NSCursor {
-        let positions: [NSCursor.FrameResizePosition] = [.topLeft, .top, .topRight, .right, .topLeft, .top, .topRight, .right]
         let rotation = canvas?.session.textDraft?.transform?.rotation ?? 0
         let turns = (Int((rotation / 45).rounded()) % 8 + 8) % 8
-        let ordered: [NSCursor.FrameResizePosition] = [.topLeft, .top, .topRight, .right]
-        let position = ordered[(ordered.firstIndex(of: positions[index])! + turns) % 4]
-        return .frameResize(position: position, directions: [.inward, .outward])
+        if #available(macOS 15.0, *) {
+            let positions: [NSCursor.FrameResizePosition] = [.topLeft, .top, .topRight, .right, .topLeft, .top, .topRight, .right]
+            let ordered: [NSCursor.FrameResizePosition] = [.topLeft, .top, .topRight, .right]
+            let position = ordered[(ordered.firstIndex(of: positions[index])! + turns) % 4]
+            return .frameResize(position: position, directions: [.inward, .outward])
+        } else {
+            let baseIndices = [0, 1, 2, 3, 0, 1, 2, 3]
+            let direction = (baseIndices[index] + turns) % 4
+            switch direction {
+            case 1: return .resizeUpDown
+            case 3: return .resizeLeftRight
+            case 0:
+                if let symbol = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil) {
+                    return NSCursor(image: symbol, hotSpot: NSPoint(x: symbol.size.width / 2, y: symbol.size.height / 2))
+                }
+                return .crosshair
+            case 2:
+                if let symbol = NSImage(systemSymbolName: "arrow.up.right.and.arrow.down.left", accessibilityDescription: nil) {
+                    return NSCursor(image: symbol, hotSpot: NSPoint(x: symbol.size.width / 2, y: symbol.size.height / 2))
+                }
+                return .crosshair
+            default:
+                return .crosshair
+            }
+        }
     }
 
     /// How far either side of an edge counts as that edge, in the box's own units. Capped so a small box keeps a
