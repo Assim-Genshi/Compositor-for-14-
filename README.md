@@ -1,7 +1,7 @@
 # Compositor (macOS 14+ Port)
 
 > [!NOTE]
-> **About this fork:** This is a fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor), backported and adapted to run natively on **macOS 14.6+ (Sonoma)** as well as macOS 15+ (Sequoia). The upstream version requires macOS 15+. This fork adapts macOS 15-exclusive APIs (such as window placement APIs) and adds localization support.
+> **About this fork:** This is a fork of [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor), backported and adapted to run natively on **macOS 14.6+ (Sonoma)** as well as macOS 15+ (Sequoia). The upstream version requires macOS 26.5+. This fork adapts macOS 15-exclusive APIs (such as window placement APIs) and adds localization support.
 
 ---
 
